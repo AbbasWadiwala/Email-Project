@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="87d3824e-1796-4929-923c-585371d2c2cf" >
+		<http:listener-connection host="0.0.0.0" port="8082" />
+	</http:listener-config>
+	<flow name="email_mulesoft_serverFlow" doc:id="392eccb0-d749-4047-9230-adb61149c859" >
+		<http:listener doc:name="Listener" doc:id="ae5120b0-6e77-4a22-897f-448030efd24a" config-ref="HTTP_Listener_config" path="/login"/>
+		<set-variable value="#[message.payload.username]" doc:name="Set Username" doc:id="f54cbc79-e4d6-4a4f-9394-fe4c02a7a2fc" variableName="username"/>
+		<set-variable value="#[message.payload.password]" doc:name="Set Password" doc:id="ee67807a-747c-4412-ae97-e44bfc801445" variableName="password"/>
+		<logger level="INFO" doc:name="Logger" doc:id="7698ae37-d4d3-4e2d-9cf8-b990f2cbd1b0" message="#[vars.username], #[vars.password]"/>
+		<set-payload value="Ok" doc:name="Set Payload" doc:id="6db69366-4ee1-40e2-9564-8287f25cc6c9" />
+	</flow>
+</mule>
