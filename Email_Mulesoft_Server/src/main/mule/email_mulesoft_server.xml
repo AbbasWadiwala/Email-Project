@@ -1,17 +1,130 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core"
-	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
-http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
 	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="87d3824e-1796-4929-923c-585371d2c2cf" >
 		<http:listener-connection host="0.0.0.0" port="8082" />
 	</http:listener-config>
-	<flow name="email_mulesoft_serverFlow" doc:id="392eccb0-d749-4047-9230-adb61149c859" >
+	<http:request-config name="HTTP_Request_configuration_UserServer" doc:name="HTTP Request configuration" doc:id="73b0faf4-dfc6-46cf-a837-35d8579b59b8" >
+		<http:request-connection host="localhost" port="3002" connectionIdleTimeout="3000" />
+	</http:request-config>
+	<http:request-config name="HTTP_Request_configuration_FrontEndServer" doc:name="HTTP Request configuration" doc:id="bb480c7b-486f-4c03-8085-f573f49bf344" >
+		<http:request-connection host="localhost" port="3003" />
+	</http:request-config>
+	<http:request-config name="HTTP_Request_configuration_EmailServer" doc:name="HTTP Request configuration" doc:id="5b7b83ad-e285-4a99-9114-2df316901902" >
+		<http:request-connection host="localhost" port="3005" />
+	</http:request-config>
+	<flow name="email_mulesoft_serverFlow_login" doc:id="392eccb0-d749-4047-9230-adb61149c859" >
 		<http:listener doc:name="Listener" doc:id="ae5120b0-6e77-4a22-897f-448030efd24a" config-ref="HTTP_Listener_config" path="/login"/>
 		<set-variable value="#[message.payload.username]" doc:name="Set Username" doc:id="f54cbc79-e4d6-4a4f-9394-fe4c02a7a2fc" variableName="username"/>
 		<set-variable value="#[message.payload.password]" doc:name="Set Password" doc:id="ee67807a-747c-4412-ae97-e44bfc801445" variableName="password"/>
-		<logger level="INFO" doc:name="Logger" doc:id="7698ae37-d4d3-4e2d-9cf8-b990f2cbd1b0" message="#[vars.username], #[vars.password]"/>
-		<set-payload value="Ok" doc:name="Set Payload" doc:id="6db69366-4ee1-40e2-9564-8287f25cc6c9" />
+		<http:request method="GET" doc:name="Request" doc:id="56c1652c-ad41-4ec9-b771-0a4590e0d70e" config-ref="HTTP_Request_configuration_UserServer" path="/login" outputMimeType="application/json">
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	username : vars.username,
+	password : vars.password
+}]]]></http:query-params>
+		</http:request>
+		<logger level="INFO" doc:name="Logger" doc:id="e5cb9d29-5346-4519-b891-b72d8e3deac6" message="#[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="3c00cdec-04fd-414d-9748-d55c253a3099" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="02d9447d-869b-4cb8-b59b-394bf211df3c" message="#[payload]"/>
+		<choice doc:name="Choice" doc:id="6d97379c-38b1-419b-9078-5b2756510f5a" >
+			<when expression="#[payload.status == 'true']">
+				<http:request method="GET" doc:name="Request" doc:id="8651e792-999a-4fd9-8e49-e3b88128c691" config-ref="HTTP_Request_configuration_FrontEndServer" path="/success">
+					<http:query-params ><![CDATA[#[output application/java
+---
+{
+	username : vars.username,
+	password : vars.password
+}]]]></http:query-params>
+				</http:request>
+			</when>
+			<otherwise >
+				<http:request method="GET" doc:name="Request" doc:id="3cf94727-52d9-4953-97af-1179bd63a027" config-ref="HTTP_Request_configuration_FrontEndServer" path="/retrylogin" />
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="email_mulesoft_serverFlow_createaccount" doc:id="277079dc-8a68-4492-a63d-07c348b04497" >
+		<http:listener doc:name="Listener" doc:id="061e75a0-9155-43e6-ad83-cf9886dd376c" config-ref="HTTP_Listener_config" path="/createaccount"/>
+		<set-variable value="#[message.payload.username]" doc:name="Set Username" doc:id="51bc4861-a4df-4ce5-af1e-427600c7d1b7" variableName="username" />
+		<set-variable value="#[message.payload.password]" doc:name="Set Password" doc:id="1468884d-fa2a-4d08-b8aa-9e2932a637d5" variableName="password" />
+		<http:request method="GET" doc:name="Request" doc:id="41b5421f-c19c-4cef-9f51-56adaded5947" config-ref="HTTP_Request_configuration_UserServer" path="/createaccount">
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	username : vars.username,
+	password : vars.password
+}]]]></http:query-params>
+		</http:request>
+		<logger level="INFO" doc:name="Logger" doc:id="6db8d29f-9d31-4f11-8c4c-dc6c2f973f8b" message="#[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="af2bf6e4-c7df-4b8a-bd77-b64d7f9dbc00" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="026288b0-ddca-4f3d-9e74-3f8661077d5e" message="#[payload]" />
+		<choice doc:name="Choice" doc:id="808f3d75-be3e-4af7-92cd-dda7526d060b" >
+			<when expression="#[payload.status == 'success']">
+				<http:request method="GET" doc:name="Request" doc:id="b11f0383-21fd-4996-b041-506f546f00d5" config-ref="HTTP_Request_configuration_FrontEndServer" path="/success" >
+					<http:query-params ><![CDATA[#[output application/java
+---
+{
+	username : vars.username,
+	password : vars.password
+}]]]></http:query-params>
+				</http:request>
+			</when>
+			<when expression="#[payload.status == 'account-exists']">
+				<http:request method="GET" doc:name="Request" doc:id="7c25e258-65bd-46f4-8ea0-d67b493e760c" config-ref="HTTP_Request_configuration_FrontEndServer" path="/retrylogin" />
+			</when>
+			<otherwise>
+				<http:request method="GET" doc:name="Request" doc:id="dec4a222-481c-4b2f-90b8-c9f4f058744c" config-ref="HTTP_Request_configuration_FrontEndServer" path="/createaccount"/>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="email_mulesoft_serverFlow" doc:id="a8f8b8a3-42ce-4e41-999e-ed6dcbb14d84" >
+		<http:listener doc:name="Listener" doc:id="f7682ffa-cda9-4dd3-ae7a-8760a1967589" config-ref="HTTP_Listener_config" path="/inbox"/>
+		<set-variable value="#[message.payload.username]" doc:name="Set Username" doc:id="257bff27-f151-46b2-b5e7-32b053ee00c3" variableName="username" />
+		<set-variable value="#[message.payload.password]" doc:name="Set Password" doc:id="c3ce1ae4-a4fd-4e3c-8828-4cf49159693f" variableName="password" />
+		<http:request method="GET" doc:name="Request" doc:id="7239d121-1f73-4d7e-92cb-da782f80b01d" config-ref="HTTP_Request_configuration_EmailServer" path="/inbox">
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	username : vars.username,
+	password : vars.password
+}]]]></http:query-params>
+		</http:request>
+		<logger level="INFO" doc:name="Logger" doc:id="b0173d40-cac3-4221-b2ea-d1fae54ebf13" message="#[payload]" />
+		<ee:transform doc:name="Transform Message" doc:id="c4357b64-c251-4260-8d11-0c0d6fa0a22b" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="d54701fe-38c8-4da9-bbda-1538bf359365" message="#[payload]" />
+		<choice doc:name="Choice" doc:id="e7671723-a93f-4d73-ac34-cde560e8c9ca" >
+			<when expression="#[payload.status != 'wrong-credentials' and payload.status != 'wrong-path']">
+				<http:request method="GET" doc:name="Request" doc:id="b8086183-faac-41f7-bbc1-c78ce336f3f3" config-ref="HTTP_Request_configuration_FrontEndServer" path="/inbox"/>
+			</when>
+			<otherwise >
+				<http:request method="GET" doc:name="Request" doc:id="86707df3-b081-4859-9aad-f7273784a56b" config-ref="HTTP_Request_configuration_FrontEndServer" path="/retrylogin" />
+			</otherwise>
+		</choice>
 	</flow>
 </mule>

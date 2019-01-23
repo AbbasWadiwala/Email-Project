@@ -27,19 +27,31 @@ var server = http.createServer( function(Req,Res){
     else if(myURL.pathname === '/createaccount'){
         var conn = connection();
         console.log("Username: " + myURL.query.username + ", Password: " + myURL.query.password);
-        
-        conn.query("insert into users (id, username,password) values(NULL, '" + myURL.query.username + "','" + myURL.query.password +"')", function(error,data){
-            console.log(data);
-            if(!error){                
-                Res.write(JSON.stringify({ "status" : "success" }));                
+
+        conn.query("select * from users where username='" + myURL.query.username + "';", function(error,data){
+            if(data.length){                
+                Res.write(JSON.stringify({ "status" : "account-exists" }));                
                 Res.end();
             }
             else{
-                Res.write(JSON.stringify({ "status" : "failed" }));   
-                Res.end();
+                conn.query("insert into users (id, username,password) values(NULL, '" + myURL.query.username + "','" + myURL.query.password +"')", function(error,data){
+                    console.log(data);
+                    if(!error){                
+                        Res.write(JSON.stringify({ "status" : "success" }));                
+                        Res.end();
+                    }
+                    else{
+                        Res.write(JSON.stringify({ "status" : "failed" }));   
+                        Res.end();
+                    }
+                    
+                })
             }
             
         })
+
+        
+        
     }
     else{
         Res.write(JSON.stringify({ "status" : "wrong path" }));   
@@ -58,7 +70,7 @@ function connection(){
     });   
     conn.connect(function(error){
         if(error){
-            console.log(error);
+            console.log("---->",error);
             throw error;
         }
         else{
