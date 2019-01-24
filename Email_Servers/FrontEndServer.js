@@ -3,12 +3,16 @@ var mysql = require('mysql');
 var url = require('url');
 
 var muleSoftPortNo = 8082;
+var frontEndServerPortNo = 3003;
 //var userserver = require('UserServer');
 
 var server = http.createServer(function(Req,Res){
     Res.writeHead(200,{'content-type': 'text/html'});
     var myURL = url.parse(Req.url, true);
+    const { headers, method, url2 } = Req;
     console.log(myURL.pathname);
+
+
     if(myURL.pathname === '/login'){
        Res.write("<form action='http://localhost:" + muleSoftPortNo + "/login' method='POST'>");
        Res.write("User Name: <input  required name='username' type='email'>");
@@ -28,7 +32,7 @@ var server = http.createServer(function(Req,Res){
         Res.write("</form>");
 
         Res.write("INVALID USERNAME OR PASSWORD </br>");
-        Res.write("<a href='http://localhost:" + "3003" + "/createaccount'> CREATE NEW ACCOUNT </a>");
+        Res.write("<a href='http://localhost:" + frontEndServerPortNo + "/createaccount'> CREATE NEW ACCOUNT </a>");
 
         Res.end();
 
@@ -55,14 +59,78 @@ var server = http.createServer(function(Req,Res){
         Res.write("<input type='submit' value='View Inbox'>");
         Res.write("</form>");
 
+        Res.write("</br>");
+
+        Res.write("<form action='http://localhost:" + frontEndServerPortNo + "/compose' method='POST'>");
+        Res.write("<input name='username' value=" + myURL.query.username + " type='hidden'>");
+        Res.write("<input name='password'  value=" + myURL.query.password + " type='hidden'>");
+        Res.write("<input type='submit' value='Compose New Email'>");
+        Res.write("</form>");
+
         Res.end();
     }
 
     else if(myURL.pathname === '/inbox'){
+        var chunkCount = 0;
+        let body = [];
+        Req.on('error', (err) => {
+            console.error(err);
+            Res.write("There was an Error");
+            Res.end();
+        }).on('data', (chunk) => {
+            chunkCount++;
+            console.log(chunkCount);
+            body.push(chunk);
+        }).on('end', () => {
+            body = Buffer.concat(body).toString();
+            Res.write(body);
+            Res.end();
+        });      
+    }
+
+    else if(myURL.pathname === '/compose'){
+
+        var chunkCount = 0;
+        let body = [];
+        Req.on('error', (err) => {
+            console.error(err);
+            Res.write("There was an Error");
+            Res.end();
+        }).on('data', (chunk) => {
+            chunkCount++;
+            console.log(chunkCount);
+            body.push(chunk);
+        }).on('end', () => {
+            body = Buffer.concat(body).toString();
+            Res.write(body);
+
+            var posOfLastEqualSign =  body.lastIndexOf("=");
+            var usernameFromBody = "";
+            var passwordFromBody = "";
+
+            passwordFromBody = body.substring(posOfLastEqualSign+1,body.length);
+
+            var posOfFirstAmpersandSign =  body.indexOf("&");
+            usernameFromBody = body.substring(9,posOfFirstAmpersandSign);
+            usernameFromBody = usernameFromBody.replace("%40","@");
+
+            console.log(usernameFromBody);
+            console.log(passwordFromBody);
         
-        Res.write("Inbox");
+            Res.write("<form action='http://localhost:" + muleSoftPortNo + "/compose' method='POST'>");
+            Res.write("To: <input required name='to_user' type='email' maxlength='20'></br>");
+            Res.write("Subject: <input  name='subject' type='text' maxlength='30'></br>");
+            Res.write("Body: <textarea  name='body' rows='10' cols='50' maxlength='500'> ENTER YOUR EMAIL HERE </textarea></br>");
+            Res.write("<input type='submit' value='Send Email'>");
+            Res.write("<input name='from_user'  value=" + usernameFromBody + " type='hidden'>");
+            Res.write("<input name='password'  value=" + passwordFromBody + " type='hidden'>");
+            Res.write("</form>");
+            Res.end();
+            
+        });   
+
+
         
-        Res.end();
     }
 
     else {
@@ -70,7 +138,7 @@ var server = http.createServer(function(Req,Res){
         Res.end();
     }
 
-}).listen(3003);
+}).listen(frontEndServerPortNo);
 
 function connection(){
     var conn = mysql.createConnection({

@@ -120,10 +120,66 @@ payload]]></ee:set-payload>
 		<logger level="INFO" doc:name="Logger" doc:id="d54701fe-38c8-4da9-bbda-1538bf359365" message="#[payload]" />
 		<choice doc:name="Choice" doc:id="e7671723-a93f-4d73-ac34-cde560e8c9ca" >
 			<when expression="#[payload.status != 'wrong-credentials' and payload.status != 'wrong-path']">
-				<http:request method="GET" doc:name="Request" doc:id="b8086183-faac-41f7-bbc1-c78ce336f3f3" config-ref="HTTP_Request_configuration_FrontEndServer" path="/inbox"/>
+				<set-payload value="#[payload.table]" doc:name="Set Payload" doc:id="ac0f9870-c034-40c5-bd9c-65d26630dd4f" />
+				<logger level="INFO" doc:name="Logger" doc:id="132c9d80-2d5b-4cc4-a29e-c11877527aa1" message="#[payload]" />
+				<ee:transform doc:name="Transform Message" doc:id="8376c6cf-8fb7-45ba-ba89-f43e77319bb2">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output text/plain
+---
+payload
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<logger level="INFO" doc:name="Logger" doc:id="213fda7c-22f1-45c2-a44c-1f6d51c064d6" message="#[payload]" />
+				<http:request method="POST" doc:name="Request" doc:id="b8086183-faac-41f7-bbc1-c78ce336f3f3" config-ref="HTTP_Request_configuration_FrontEndServer" path="/inbox"/>
 			</when>
 			<otherwise >
 				<http:request method="GET" doc:name="Request" doc:id="86707df3-b081-4859-9aad-f7273784a56b" config-ref="HTTP_Request_configuration_FrontEndServer" path="/retrylogin" />
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="email_mulesoft_serverFlow_compose" doc:id="f09bb14a-72fd-4c50-b07a-b32322f71d7b" >
+		<http:listener doc:name="Listener" doc:id="d2a98c41-78f3-4511-98ff-5722a021c3d0" config-ref="HTTP_Listener_config" path="/compose"/>
+		<set-variable value="#[message.payload.from_user]" doc:name="Set Username" doc:id="32f09c54-b425-4435-b806-0e9b4a0ec5f5" variableName="username"/>
+		<set-variable value="#[message.payload.password]" doc:name="Set Password" doc:id="73f69800-4aff-4e7a-8224-18fc9eab9309" variableName="password"/>
+		<set-variable value="#[message.payload.to_user]" doc:name="Set To_Username" doc:id="3d3d3feb-f67d-47d1-8dfb-e131e1df43d8" variableName="to_user"/>
+		<set-variable value="#[message.payload.subject]" doc:name="Set Subject" doc:id="0d58dc7c-56dc-4c5f-8cf9-09f422cb0aa5" variableName="subject"/>
+		<set-variable value="#[message.payload.body]" doc:name="Set Body" doc:id="f93cd1df-450c-4406-a8b0-9e9003dc1d10" variableName="body"/>
+		<http:request method="GET" doc:name="Request" doc:id="798c1b12-87a8-4c95-86cc-b947dda7465f" config-ref="HTTP_Request_configuration_EmailServer" path="/compose">
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	username : vars.username,
+	password : vars.password,
+	to_user : vars.to_user,
+	subject : vars.subject,
+	body : vars.body
+}]]]></http:query-params>
+		</http:request>
+		<choice doc:name="Choice" doc:id="ef1bbe84-e953-449e-ace9-2cbf21c830c0" >
+			<when expression="#[payload.status == 'success']">
+				<http:request method="GET" doc:name="Request" doc:id="8ff27fa5-ba54-4103-81df-a99a06a9e88f" config-ref="HTTP_Request_configuration_FrontEndServer" path="/success" >
+					<http:query-params ><![CDATA[#[output application/java
+---
+{
+	username : vars.username,
+	password : vars.password
+}]]]></http:query-params>
+				</http:request>
+			</when>
+			<when expression="#[payload.status == 'incorrect-email']">
+				<http:request method="GET" doc:name="Request" doc:id="a6cbf794-2036-41d1-9ce8-40980d0927e1" config-ref="HTTP_Request_configuration_FrontEndServer" path="/compose">
+					<http:query-params ><![CDATA[#[output application/java
+---
+{
+	username : vars.username,
+	password : vars.password
+}]]]></http:query-params>
+				</http:request>
+			</when>
+			<otherwise >
+				<http:request method="GET" doc:name="Request" doc:id="a58a4c05-47a7-44a8-85a3-2c7ea0a3235d" config-ref="HTTP_Request_configuration_FrontEndServer" path="/retrylogin" />
 			</otherwise>
 		</choice>
 	</flow>

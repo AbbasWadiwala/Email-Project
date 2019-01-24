@@ -53,6 +53,70 @@ var server = http.createServer( function(Req,Res){
 
         
     }
+
+    else if(myURL.pathname === '/compose'){
+        var conn = connection();
+        console.log("Username: " + myURL.query.username);
+        console.log("Password: " + myURL.query.password);
+        conn.query("select * from users where username='" + myURL.query.username + "' and password='" + myURL.query.password +"';", function(error,data){
+                       
+            if(data.length){
+                
+                conn.query("select * from users where username='" + myURL.query.to_user + "';", function(error,data){
+                    
+                    if(data.length){
+
+                        var chunkCount = 0;
+                        let body = [];
+                        Req.on('error', (err) => {
+                            console.error(err);
+                            Res.write("There was an Error");
+                            Res.end();
+                        }).on('data', (chunk) => {
+                            chunkCount++;
+                            console.log(chunkCount);
+                            body.push(chunk);
+                        }).on('end', () => {
+                            body = Buffer.concat(body).toString();
+                            
+                            conn.query("insert into emails (id, subject, body, from_user, to_user, date_time)" + 
+                                    "values(NULL, '" + myURL.query.subject + "', '" + myURL.query.body + "', '" + myURL.query.username + "', '" + myURL.query.to_user + "', CURRENT_TIMESTAMP)", function(error,data){
+                                console.log(data);
+                                if(!error){                
+                                    Res.write(JSON.stringify({ "status" : "success" }));                
+                                    Res.end();
+                                }
+                                else{
+                                    Res.write(JSON.stringify({ "status" : "failed" }));   
+                                    Res.end();
+                                }                            
+                            });
+
+                        });   
+
+                        
+                        
+                    }
+                    else{
+                        console.log("incorrect-email");
+                        Res.write(JSON.stringify({ "status" : "incorrect-email" })); 
+                        Res.end();
+                    }
+                });
+
+            }
+            else{
+                console.log("wrong-credentials");
+                Res.write(JSON.stringify({ "status" : "wrong-credentials" })); 
+                Res.end();
+            }
+            
+        });
+
+        
+    }
+
+
     
     else{
         Res.write(JSON.stringify({ "status" : "wrong-path" }));
